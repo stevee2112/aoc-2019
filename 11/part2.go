@@ -8,6 +8,9 @@ import (
 	"bufio"
 	"strings"
 	"strconv"
+	"image"
+	"image/color"
+	"image/png"
 )
 
 type Coordinate struct {
@@ -29,8 +32,9 @@ type Robot struct {
 func NewRobot() *Robot {
 	robot := &Robot{}
 	robot.Painted = make(map[string]Coordinate)
-	coordinate := Coordinate{0,0,0}
+	coordinate := Coordinate{0,0,1}
 	robot.At = coordinate
+	robot.PaintPanel(1)
 	robot.Direction = "N"
 	return robot
 }
@@ -127,8 +131,27 @@ func main() {
 	}
 
 	robot := paintRobot(intCodes)
-	fmt.Println(len(robot.Painted))
 
+	var minX, minY, maxX, maxY int
+	for _,coordinate  := range robot.Painted {
+		minX = Min(minX, coordinate.X)
+		maxX = Max(maxX, coordinate.X)
+		minY = Min(minY, coordinate.Y)
+		maxY = Max(maxY, coordinate.Y)
+	}
+
+	img := image.NewGray(image.Rect(minY-10, minX-10, maxY+10, maxX+10))
+	for _, coordinate := range robot.Painted {
+		switch coordinate.Color {
+		case 0:
+			img.Set(coordinate.Y, coordinate.X, color.Black)
+		case 1:
+			img.Set(coordinate.Y, coordinate.X, color.White)
+		}
+	}
+	f, _ := os.Create("11/out.png")
+	defer f.Close()
+	png.Encode(f, img)
 }
 
 func paintRobot(intCodes []int) (*Robot) {
@@ -376,4 +399,18 @@ func growMemory(intCodes []int, size int) []int {
 	copy(newMemory, intCodes)
 
 	return newMemory
+}
+
+func Min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}
+
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
