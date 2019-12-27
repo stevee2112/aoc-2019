@@ -12,6 +12,17 @@ func Gcd(a, b int) int {
 	return a
 }
 
+// find Least Common Multiple (LCM) via GCD
+func Lcm(a, b int, integers ...int) int {
+	result := a * b / Gcd(a, b)
+
+	for i := 0; i < len(integers); i++ {
+		result = Lcm(result, integers[i])
+	}
+
+	return result
+}
+
 // Abs returns the absolute value of x.
 func Abs(x int) int {
 	if x < 0 {
