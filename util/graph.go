@@ -7,6 +7,13 @@ import (
 
 type Grid map[string]Coordinate
 
+type TileGrid map[string]Tile
+
+type Tile struct {
+	Coordinate Coordinate
+	Value interface{}
+}
+
 type Coordinate struct {
 	X int
 	Y int
@@ -63,4 +70,44 @@ func (coordinate *Coordinate) GetPathPoints(end Coordinate) []Coordinate {
 	}
 
 	return coordinates
+}
+
+func GetNormalizedGrid(grid TileGrid) TileGrid {
+
+	normalized := make(TileGrid)
+	min := getGridMinX(grid)
+	max := getGridMaxY(grid)
+
+	for _,tile := range grid {
+		newTile := Tile{Coordinate{tile.Coordinate.X + (min * -1), Abs(tile.Coordinate.Y + (max * -1))}, tile.Value}
+		normalized[newTile.Coordinate.String()] = newTile
+	}
+
+	return normalized
+}
+
+func getGridMinX(grid TileGrid) int {
+
+	min := 99999999999999 // not great but lazy
+
+	for _,tile := range grid {
+		if tile.Coordinate.X < min {
+			min = tile.Coordinate.X
+		}
+	}
+
+	return min
+}
+
+func getGridMaxY(grid TileGrid) int {
+
+	max := -999999999 // not great but lazy
+
+	for _,tile := range grid {
+		if tile.Coordinate.Y > max {
+			max = tile.Coordinate.Y
+		}
+	}
+
+	return max
 }

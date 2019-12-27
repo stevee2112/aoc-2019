@@ -11,34 +11,13 @@ import (
 	"aoc-2019/util"
 	"math/rand"
 	"time"
+	"container/list"
 	"github.com/gdamore/tcell"
 )
 
-type Tile struct {
-	coordinate util.Coordinate
-	value string
-}
-
-type Coordinate struct {
-	X int
-	Y int
-	Tile string
-}
-
-func (coordinate *Coordinate) String() string {
-	return fmt.Sprintf("%d,%d", coordinate.X, coordinate.Y)
-}
-
-type Grid map[string]Coordinate
-
-type Screen struct {
-	Grid Grid
-}
-
-func NewScreen() *Screen {
-	screen := &Screen{}
-	screen.Grid = make(Grid)
-	return screen
+type Path struct {
+	Coordinate util.Coordinate
+	Direction int
 }
 
 func main() {
@@ -63,6 +42,7 @@ func main() {
 
 	run(intCodes)
 }
+
 func run(intCodes []int) {
 
 	input := make(chan int)
@@ -71,10 +51,13 @@ func run(intCodes []int) {
 	done := make(chan bool)
 
 	rand.Seed(1) // TODO eventually do not do this
-	direction := 1
-	grid := make(Grid)
+	var direction int
+	grid := make(util.TileGrid)
 
-	at := Coordinate{0,0,"D"}
+	startAt := util.Tile{util.Coordinate{0,0},"D"}
+	at := util.Tile{startAt.Coordinate, "D"}
+	o2At := util.Tile{util.Coordinate{0,0},"o"}
+	count := 0
 
 	go util.ProcessIntCodes(intCodes, input, output, needsInput, done)
 
@@ -84,84 +67,114 @@ programRun:
 		case out := <-output:
 			switch out {
 			case 0:
-				wallAt := getCoordinateByDirection(at, direction)
-				wallAt.Tile = "#"
-				grid[wallAt.String()] = wallAt;
+				wallAtCoor := getCoordinateByDirection(at.Coordinate, direction)
+				wallAt := util.Tile{wallAtCoor, "#"}
+				grid[wallAt.Coordinate.String()] = wallAt;
 			case 1:
-				updateCoordinateByDirection(&at, direction)
+				updateCoordinateByDirection(&at.Coordinate, direction)
 			case 2:
-				o2At := getCoordinateByDirection(at, direction)
-				o2At.Tile = "o"
-				grid[o2At.String()] = o2At;
-				break programRun
+				o2AtCoor := getCoordinateByDirection(at.Coordinate, direction)
+				updateCoordinateByDirection(&at.Coordinate, direction)
+				o2At = util.Tile{o2AtCoor, "o"}
+				grid[o2At.Coordinate.String()] = o2At;
 			}
 		case <-needsInput:
+			if count > 1000000 {
+				break programRun
+			}
 			direction = rand.Intn(4) + 1;
+			count++
 			input <- direction
 		case <- done:
 			break programRun
 		}
 	}
 
-	grid["0,0"] = Coordinate{0,0,"D"}
-	normalized := getNormalizedGrid(grid);
+	grid[startAt.Coordinate.String()] = startAt
 
 	scn, _ := tcell.NewScreen()
 	scn.Init()
 	scn.Clear()
 
-	for _,coordinate := range normalized {
-		scn.SetContent(coordinate.X, coordinate.Y, rune(coordinate.Tile[0]), []rune(""), tcell.StyleDefault)
+	normalized := util.GetNormalizedGrid(grid);
+	for _,tile := range normalized {
+		scn.SetContent(tile.Coordinate.X, tile.Coordinate.Y, rune(tile.Value.(string)[0]), []rune(""), tcell.StyleDefault)
 	}
 
 	scn.Show()
-
-	time.Sleep(time.Second * 40)
+	time.Sleep(time.Second * 10)
 	scn.Fini()
 
+	fmt.Println(shortestDistance(grid, startAt, o2At))
 }
 
-func getNormalizedGrid(grid Grid) Grid {
+type TileDistance struct {
+	Tile util.Tile
+	Distance int
+}
 
-	normalized := make(Grid)
-	min := getGridMinX(grid)
-	max := getGridMaxY(grid)
+func shortestDistance(grid util.TileGrid, src util.Tile, dest util.Tile) int {
 
-	for _,coordinate := range grid {
-		newCoordinate := Coordinate{coordinate.X + (min * -1), util.Abs(coordinate.Y + (max * -1)), coordinate.Tile}
-		normalized[newCoordinate.String()] = newCoordinate
+    // check source and destination cell
+    // of the matrix have value 1
+	if (grid[src.Coordinate.String()] == grid[dest.Coordinate.String()]) {
+		return -1
 	}
 
-	return normalized
-}
+	visited := map[string]bool{}
 
-func getGridMinX(grid Grid) int {
+    // Mark the source cell as visited
+	visited[src.Coordinate.String()] = true
 
-	min := 99999999999999 // not great but lazy
+    // Create a queue for BFS
+	queue := list.New()
 
-	for _,coordinate := range grid {
-		if coordinate.X < min {
-			min = coordinate.X
+    // Distance of source cell is 0
+    queue.PushBack(TileDistance{src, 0})  // Enqueue source cell
+
+    // Do a BFS starting from source cell
+    for queue.Len() > 0 {
+
+        curr := queue.Front();
+		tileAt := curr.Value.(TileDistance)
+
+        // If we have reached the destination cell,
+        // we are done
+		if tileAt.Tile.Coordinate.String() == dest.Coordinate.String() {
+            return tileAt.Distance
 		}
-	}
 
-	return min
+        // Otherwise dequeue the front cell in the queue
+        // and enqueue its adjacent cells
+        queue.Remove(curr);
+
+        for i := 1; i <= 4; i++ {
+
+			newCoor := getCoordinateByDirection(tileAt.Tile.Coordinate, i)
+
+			pathClear := false
+			val,ok := grid[newCoor.String()]
+			if !ok || val.Value == "o" {
+				pathClear = true
+			}
+
+			haveVisited := false
+			if _,ok := visited[newCoor.String()]; ok {
+				haveVisited = true
+			}
+
+			if pathClear && !haveVisited {
+				visited[newCoor.String()] = true
+				queue.PushBack(TileDistance{util.Tile{newCoor, nil}, tileAt.Distance + 1})
+			}
+        }
+    }
+
+    // Return -1 if destination cannot be reached
+    return -1;
 }
 
-func getGridMaxY(grid Grid) int {
-
-	max := -999999999 // not great but lazy
-
-	for _,coordinate := range grid {
-		if coordinate.Y > max {
-			max = coordinate.Y
-		}
-	}
-
-	return max
-}
-
-func updateCoordinateByDirection(coordinate *Coordinate, direction int) {
+func updateCoordinateByDirection(coordinate *util.Coordinate, direction int) {
 	switch direction {
 	case 1: // North
 		coordinate.Y++
@@ -174,7 +187,7 @@ func updateCoordinateByDirection(coordinate *Coordinate, direction int) {
 	}
 }
 
-func getCoordinateByDirection(coordinate Coordinate, direction int) Coordinate {
+func getCoordinateByDirection(coordinate util.Coordinate, direction int) util.Coordinate {
 	switch direction {
 	case 1: // North
 		coordinate.Y++
