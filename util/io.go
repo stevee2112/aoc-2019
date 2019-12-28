@@ -3,6 +3,8 @@ package util
 import (
 	"time"
 	"github.com/gdamore/tcell"
+	"bufio"
+	"os"
 )
 
 func PrintTileGrid(grid TileGrid, duration int) {
@@ -35,3 +37,11 @@ func PrintTileGridShifted(grid TileGrid, duration int, xShift int, yShift int) {
 	scn.Fini()
 }
 
+func GetFromStdin() string {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		return scanner.Text()
+	}
+
+	return ""
+}

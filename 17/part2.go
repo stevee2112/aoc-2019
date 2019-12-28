@@ -50,8 +50,6 @@ func run(intCodes []int) {
 	needsInput := make(chan bool)
 	done := make(chan bool)
 
-	outputAscii := []int{}
-
 	list := list.New()
 
 	commandArray := []string{
@@ -67,11 +65,10 @@ func run(intCodes []int) {
 			list.PushBack(command)
 		}
 
-		list.PushBack("") // newline
+		list.PushBack("\n") // newline
 	}
 
 	go util.ProcessIntCodes(intCodes, input, output, needsInput, done)
-
 
 programRun:
 	for {
@@ -79,55 +76,28 @@ programRun:
 		case out := <-output:
 
 			if out > 127 {
-				fmt.Println(out)
+				fmt.Println("Dust vacuumed:", out)
 			} else {
-				outputAscii = append(outputAscii, out)
+				fmt.Print(string(out)) // convert ascii to string
 			}
 		case <-needsInput:
-			// This could be better at accepting input and display the prompt
-			//printAscii(outputAscii, 1)
-			outputAscii = nil
 			if list.Len() > 0 {
 				next := list.Front()
 				char := next.Value.(string)
 				list.Remove(next)
+				fmt.Print(char)
 				input <- toAscii(char)
 			}
+
+			// if we wanted to manually enter values
+			//input <- toAscii(util.GetFromStdin())
 		case <- done:
 			break programRun
 		}
 	}
-
-	printAscii(outputAscii, 10)
-}
-
-func printAscii(outputAscii []int, duration int) {
-	rowAt := 0
-	colAt := 0
-
-	grid := util.TileGrid{}
-
-	for _,ascii := range outputAscii {
-		if ascii == 10 {
-			rowAt++
-			colAt = 0
-		} else {
-			char := fmt.Sprintf("%c", rune(ascii))
-			at := util.Tile{util.Coordinate{colAt, rowAt}, char}
-			grid[at.Coordinate.String()] = at
-			colAt++
-		}
-	}
-
-	util.PrintTileGrid(grid, duration)
 }
 
 func toAscii(char string) int {
-
-	if char == "" {
-		return 10
-	}
-	
 	charRune := rune(char[0])
 	return int(charRune)
 }
