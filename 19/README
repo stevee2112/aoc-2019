@@ -1,0 +1,8 @@
+For this puzzle i did not fully solve if programmatically.  However I could have doing the following.  (Which is what I did manually to get the answer)
+
+- Determine the relative slope of the center of the tractor beam
+- increase the grid size to 100 * 100
+- update where we start compile the tractor beam grid based on relative slope and general width expansion of the beam
+- move to a coordinate that was far away enough that the results would be totally incased in the grid
+- if all grid tiles were affected by the tractor beam we know the 100*100 square would fit
+- test some closer coordinates until we know this is the closest value
