@@ -14,6 +14,11 @@ import (
 
 type Packet util.Coordinate
 
+type IdleStatus struct {
+	Address int
+	Idle    bool
+}
+
 func main() {
 
 	// Get Data
@@ -37,22 +42,57 @@ func main() {
 	startAt := 0
 	networkDeviceCount := 50
 	network := map[int]chan Packet{}
+	idleChannel := make(chan IdleStatus)
+	idleCheck := map[int]bool{}
+	natPacket := Packet{}
 
 	//make network
 	for i := startAt; i < networkDeviceCount; i++ {
 		network[i] = make(chan Packet)
+		idleCheck[i] = false
 	}
+
+	// add nat to network
+	network[255] = make(chan Packet)
 
 	for i := startAt; i < networkDeviceCount; i++ {
-		go runNetworkComputer(intCodes, i, network, true)
+		go runNetworkComputer(intCodes, i, network, idleChannel, false)
 	}
 
-	// select not for - SUPER IMPORTANT
-	select {}
+	for {
+		select {
+		case packet := <-network[255]:
+			natPacket = packet
+		case idleStatus := <-idleChannel:
+			idleCheck[idleStatus.Address] = idleStatus.Idle
 
+			if checkIfAllIdle(idleCheck) == true && natPacket.X != 0 {
+				fmt.Println("All idle sending packet to address 0", natPacket)
+				restartPacket := Packet{natPacket.X, natPacket.Y}
+				natPacket.X = 0
+				go func() {
+					network[0] <- restartPacket
+				}()
+			}
+		}
+	}
 }
 
-func runNetworkComputer(intCodes []int, address int, network map[int]chan Packet, logging bool) {
+func checkIfAllIdle(idleSet map[int]bool) bool {
+
+	allIdle := true
+
+	for _, idleStatus := range idleSet {
+		if idleStatus == false {
+			allIdle = false
+			break
+		}
+	}
+
+	return allIdle
+}
+
+func runNetworkComputer(intCodes []int, address int, network map[int]chan Packet, idleChannel chan IdleStatus, logging bool) {
 
 	input := make(chan int)
 	output := make(chan int)
@@ -95,14 +135,17 @@ programRun:
 			list.PushBack(packet.Y)
 		case <-needsInput:
 			if list.Len() > 0 {
+				idleChannel <- IdleStatus{address, false}
 				next := list.Front()
 				intVal := next.Value.(int)
 				list.Remove(next)
 				input <- intVal
 			} else {
+				idleChannel <- IdleStatus{address, true}
 				input <- -1
 			}
 		case <-done:
+			fmt.Println("here")
 			break programRun
 		}
 	}
