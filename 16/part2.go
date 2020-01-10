@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"strings"
 	"strconv"
-	"aoc-2019/util"
 )
 
 func main() {
@@ -22,16 +21,26 @@ func main() {
 	scanner := bufio.NewScanner(input)
 
 	scanner.Scan()
-	rawData := scanner.Text()
+	var rawData strings.Builder
+	rawData.WriteString(scanner.Text())
 
-	sequenceDigits := strings.Split(rawData, "")
+	// multipler
+	multiple := 10000
+
+	for i := 1;i < multiple;i++ {
+		rawData.WriteString(scanner.Text())
+	}
+
+	offset,_  := strconv.Atoi(rawData.String()[:7])
+	sequenceDigits := strings.Split(rawData.String(), "")
+
 	var sequence []int
 	for _,digit  := range sequenceDigits {
 		intDigit,_ := strconv.Atoi(digit)
 		sequence = append(sequence, intDigit)
 	}
 
-	fmt.Println(sequenceAsString(FFT(sequence, 100), 8))
+	fmt.Println(sequenceAsString(FFT(sequence[offset:], 100), 8))
 }
 
 func FFT (sequence []int, phases int) []int {
@@ -46,37 +55,17 @@ func FFT (sequence []int, phases int) []int {
 
 func FFTPhase(sequence []int) []int {
 
-	newSequence := []int{}
-	pattern := []int{0, 1, 0, -1}
+	newSequence := make([]int, len(sequence))
 
-	for i := 0; i < len(sequence);i++ {
-		newSequence = append(newSequence, FFTDigit(sequence, pattern, i))
+	lastVal := 0
+
+	for i := len(sequence) - 1; i >= 0;i-- {
+		current := sequence[i]
+		lastVal += current
+		newSequence[i] = lastVal % 10
 	}
 
 	return newSequence;
-}
-
-func FFTDigit(sequence []int, pattern []int, position int) int {
-
-	sum := 0
-
-	for i,digit := range sequence {
-		val := digit * FFTPatternValue(pattern, position, i)
-		sum += val;
-	}
-
-	return util.Abs(sum) % 10;
-}
-
-func FFTPatternValue(pattern []int, position int, at int) int{
-
-	// shift left
-	at  += 1
-
-	multiple := position + 1
-	index := ((at - (at % multiple)) / multiple) % len(pattern)
-
-	return pattern[index]
 }
 
 func sequenceAsString(sequence []int, size int) string {
