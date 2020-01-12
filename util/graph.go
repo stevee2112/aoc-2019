@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"math"
+	"container/list"
 )
 
 type Grid map[string]Coordinate
@@ -18,6 +19,13 @@ type Coordinate struct {
 	X int
 	Y int
 }
+
+type TileDistance struct {
+	Tile Tile
+	Distance int
+}
+
+type FreeSpaceFunc func (tile Tile) bool
 
 func (coordinate *Coordinate) String() string {
 	return fmt.Sprintf("%d,%d", coordinate.X, coordinate.Y)
@@ -110,4 +118,81 @@ func getGridMaxY(grid TileGrid) int {
 	}
 
 	return max
+}
+
+func ShortestPath(grid TileGrid, src Tile, dest Tile, freeSpaceFunc FreeSpaceFunc) int {
+
+    // check source and destination cell
+    // of the matrix have value 1
+	if (grid[src.Coordinate.String()] == grid[dest.Coordinate.String()]) {
+		return -1
+	}
+
+	visited := map[string]bool{}
+
+    // Mark the source cell as visited
+	visited[src.Coordinate.String()] = true
+
+    // Create a queue for BFS
+	queue := list.New()
+
+    // Distance of source cell is 0
+    queue.PushBack(TileDistance{src, 0})  // Enqueue source cell
+
+    // Do a BFS starting from source cell
+    for queue.Len() > 0 {
+
+        curr := queue.Front();
+		tileAt := curr.Value.(TileDistance)
+
+        // If we have reached the destination cell,
+        // we are done
+		if tileAt.Tile.Coordinate.String() == dest.Coordinate.String() {
+            return tileAt.Distance
+		}
+
+        // Otherwise dequeue the front cell in the queue
+        // and enqueue its adjacent cells
+        queue.Remove(curr);
+
+        for i := 1; i <= 4; i++ {
+
+			newCoor := getCoordinateByDirection(tileAt.Tile.Coordinate, i)
+
+			pathClear := false
+			val,ok := grid[newCoor.String()]
+			freeSpace := freeSpaceFunc(val)
+			if ok && freeSpace {
+				pathClear = true
+			}
+
+			haveVisited := false
+			if _,ok := visited[newCoor.String()]; ok {
+				haveVisited = true
+			}
+
+			if pathClear && !haveVisited {
+				visited[newCoor.String()] = true
+				queue.PushBack(TileDistance{Tile{newCoor, nil}, tileAt.Distance + 1})
+			}
+        }
+    }
+
+    // Return -1 if destination cannot be reached
+    return -1;
+}
+
+func getCoordinateByDirection(coordinate Coordinate, direction int) Coordinate {
+	switch direction {
+	case 1: // North
+		coordinate.Y++
+	case 2: // South
+		coordinate.Y--
+	case 3: // West
+		coordinate.X--
+	case 4: // East
+		coordinate.X++
+	}
+
+	return coordinate
 }
