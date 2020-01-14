@@ -107,6 +107,19 @@ func getGridMinX(grid TileGrid) int {
 	return min
 }
 
+func getGridMaxX(grid TileGrid) int {
+
+	max := -99999999999999 // not great but lazy
+
+	for _,tile := range grid {
+		if tile.Coordinate.X > max {
+			max = tile.Coordinate.X
+		}
+	}
+
+	return max
+}
+
 func getGridMaxY(grid TileGrid) int {
 
 	max := -999999999 // not great but lazy
@@ -195,4 +208,14 @@ func getCoordinateByDirection(coordinate Coordinate, direction int) Coordinate {
 	}
 
 	return coordinate
+}
+
+func CloneTileGrid(tileGrid TileGrid) TileGrid {
+	newTileGrid := TileGrid{}
+
+	for key,tile := range tileGrid {
+		newTileGrid[key] = Tile{Coordinate{tile.Coordinate.X, tile.Coordinate.Y}, tile.Value}
+	}
+
+	return newTileGrid
 }

@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"strings"
 	"aoc-2019/util"
+	"sort"
 )
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 
 	keys := util.TileGrid{}
 	doors := util.TileGrid{}
-	at := &util.Tile{}
+	at := util.Tile{}
 
 	for scanner.Scan() {
 		colAt = 0;
@@ -44,7 +45,7 @@ func main() {
 			}
 
 			if char == "@" {
-				at = &tile
+				at = util.Tile{util.Coordinate{colAt, rowAt}, char}
 			}
 			colAt++
 		}
@@ -52,61 +53,162 @@ func main() {
 		rowAt++
 	}
 
-	steps := 0
-
-	util.PrintTileGrid(maze, 2)
-
-	for len(keys) > 0 {
-		steps += move(&maze, at, &keys, &doors)
-	}
-
-	fmt.Println(steps)
+	fmt.Println(move(maze, at, keys, doors, 0))
 }
 
-func move(maze *util.TileGrid, at *util.Tile, keys *util.TileGrid, doors *util.TileGrid) int {
+func move(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors util.TileGrid, depth int) int {
 
-	// find closest key
-	keyDistance := map[string]int{}
+	depth++
+	steps := 0
 
+	// we have got all the keys
+	if len(keys) == 0 {
+		return 0;
+	}
 
-	for key,keyTile := range *keys {
-		keyDistance[key] = util.ShortestPath(*maze, *at, keyTile, func(tile util.Tile) bool {
+	// Get all reachable keys
+	keysReachable := map[string]int{}
+	for key,keyTile := range keys {
+		stepsToKey := util.ShortestPath(maze, at, keyTile, func(tile util.Tile) bool {
 			valString := tile.Value.(string)
 			return (strings.ToLower(valString) == valString && valString != "#")
 		})
-	}
 
-	var closestKey string
-	closestSteps := 999999999999 // again lazy
-
-	for key,distance := range keyDistance {
-		if distance > 0 && distance < closestSteps {
-			closestSteps = distance
-			closestKey = key
+		if stepsToKey > 0 {
+			keysReachable[key] = stepsToKey
 		}
 	}
 
-	keyTile := (*keys)[closestKey];
+	//fmt.Println(keysReachable)
+
+	shortestKey,_ := getShortest(maze, at, keys, doors, 0)
+	fmt.Println(shortestKey)
+
+    //util.PrintTileGridTerminal(maze)
+    //shortestKey = util.GetFromStdin();
+	keyTile := keys[shortestKey];
+
+	// steps to key
+	steps += util.ShortestPath(maze, at, keyTile, func(tile util.Tile) bool {
+		valString := tile.Value.(string)
+		return (strings.ToLower(valString) == valString && valString != "#")
+	})
 
 	// Clear where current at and move to key location
-	(*maze)[at.Coordinate.String()] = util.Tile{util.Coordinate{at.Coordinate.X, at.Coordinate.Y}, "."}
-	(*maze)[keyTile.Coordinate.String()] =
+	maze[at.Coordinate.String()] = util.Tile{util.Coordinate{at.Coordinate.X, at.Coordinate.Y}, "."}
+	maze[keyTile.Coordinate.String()] =
 		util.Tile{util.Coordinate{keyTile.Coordinate.X, keyTile.Coordinate.Y}, "@"}
 	at.Coordinate = keyTile.Coordinate
 
 	// Clear key
-	delete(*keys, keyTile.Value.(string))
+	delete(keys, keyTile.Value.(string))
 
 	// Clear Door
-	doorTile,ok := (*doors)[strings.ToUpper(keyTile.Value.(string))]
+	doorTile,ok := doors[strings.ToUpper(keyTile.Value.(string))]
 
 	if ok {
-		(*maze)[doorTile.Coordinate.String()] =
+		maze[doorTile.Coordinate.String()] =
 			util.Tile{util.Coordinate{doorTile.Coordinate.X, doorTile.Coordinate.Y}, "."}
-		delete(*doors, doorTile.Value.(string))
+		delete(doors, doorTile.Value.(string))
 	}
 
-	util.PrintTileGrid(*maze, 2)
+	steps += move(maze, at, keys, doors, depth)
 
-	return closestSteps
+	return steps
+}
+
+func getShortest(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors util.TileGrid, depth int) (string, int) {
+
+	depth++
+
+	// we have got all the keys
+	if len(keys) == 0 {
+		return "", 0
+	}
+
+	// Get all reachable keys
+	keysReachable := map[string]int{}
+	for key,keyTile := range keys {
+		stepsToKey := util.ShortestPath(maze, at, keyTile, func(tile util.Tile) bool {
+			valString := tile.Value.(string)
+			return (strings.ToLower(valString) == valString && valString != "#")
+		})
+
+		if stepsToKey > 0 {
+			keysReachable[key] = stepsToKey
+		}
+	}
+
+	shortest := 99999999999 // lazy
+	shortestKey := ""
+
+	type kv struct {
+		Key   string
+		Value int
+	}
+
+	var ss []kv
+
+	for key,steps := range keysReachable {
+		ss = append(ss, kv{key,steps})
+	}
+
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Value < ss[j].Value
+	})
+
+	max := len(ss)
+
+	// if max > 2 {
+	// 	max = 2
+	// }
+
+	// For each rechable key clone stuff then use shortest value for return of moved
+	for _,kv := range ss[:max] {
+
+		keyStr := kv.Key
+
+		keySteps := 0;
+
+		tempMaze := util.CloneTileGrid(maze)
+		tempKeys := util.CloneTileGrid(keys)
+		tempDoors := util.CloneTileGrid(doors)
+		tempAt := tempMaze[at.Coordinate.String()]
+
+		keyTile := tempKeys[keyStr];
+
+		// steps to key
+		keySteps += util.ShortestPath(tempMaze, tempAt, keyTile, func(tile util.Tile) bool {
+			valString := tile.Value.(string)
+			return (strings.ToLower(valString) == valString && valString != "#")
+		})
+
+		// Clear where current at and move to key location
+		tempMaze[tempAt.Coordinate.String()] = util.Tile{util.Coordinate{tempAt.Coordinate.X, tempAt.Coordinate.Y}, "."}
+		tempMaze[keyTile.Coordinate.String()] =
+			util.Tile{util.Coordinate{keyTile.Coordinate.X, keyTile.Coordinate.Y}, "@"}
+		tempAt.Coordinate = keyTile.Coordinate
+
+		// Clear key
+		delete(tempKeys, keyTile.Value.(string))
+
+		// Clear Door
+		doorTile,ok := tempDoors[strings.ToUpper(keyTile.Value.(string))]
+
+		if ok {
+			tempMaze[doorTile.Coordinate.String()] =
+				util.Tile{util.Coordinate{doorTile.Coordinate.X, doorTile.Coordinate.Y}, "."}
+			delete(tempDoors, doorTile.Value.(string))
+		}
+
+		_, stepRet := getShortest(tempMaze, tempAt, tempKeys, tempDoors, depth)
+		keySteps += stepRet
+
+		if keySteps <= shortest {
+			shortest = keySteps
+			shortestKey = keyStr
+		}
+	}
+
+	return shortestKey, shortest
 }
