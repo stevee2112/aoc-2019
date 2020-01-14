@@ -9,9 +9,22 @@ import (
 	"strings"
 	"aoc-2019/util"
 	"sort"
+	"crypto/md5"
+	"encoding/json"
 )
 
+
+type CacheData struct {
+	Key string
+	Steps int
+}
+
+var globalCache map[string]CacheData
+
 func main() {
+
+	// initial cache
+	globalCache = make(map[string]CacheData)
 
 	// Get Data
 	_, file, _,  _ := runtime.Caller(0)
@@ -31,7 +44,7 @@ func main() {
 
 	for scanner.Scan() {
 		colAt = 0;
-		row  := scanner.Text()
+			row  := scanner.Text()
 		for _,char := range strings.Split(row, "") {
 			tile := util.Tile{util.Coordinate{colAt, rowAt}, char}
 			maze[tile.Coordinate.String()] = tile
@@ -119,7 +132,10 @@ func move(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors util.TileG
 
 func getShortest(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors util.TileGrid, depth int) (string, int) {
 
-	depth++
+	//checkCache
+	if val,ok := globalCache[getCacheKey(maze,at,keys,doors)]; ok {
+		return val.Key, val.Steps
+	}
 
 	// we have got all the keys
 	if len(keys) == 0 {
@@ -210,5 +226,26 @@ func getShortest(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors uti
 		}
 	}
 
+	saveToCache(maze, at, keys, doors, shortestKey, shortest)
+
 	return shortestKey, shortest
+}
+
+func getCacheKey(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors util.TileGrid) string {
+	type CacheKeyData struct {
+		Maze util.TileGrid
+		At util.Tile
+		Keys util.TileGrid
+		Doors util.TileGrid
+	}
+
+	data, _ := json.Marshal(CacheKeyData{maze, at, keys, doors})
+	hash := fmt.Sprintf("%x", md5.Sum(data))
+
+	return hash
+
+}
+
+func saveToCache(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors util.TileGrid, key string, steps int) {
+	globalCache[getCacheKey(maze, at, keys, doors)] = CacheData{key, steps}
 }
