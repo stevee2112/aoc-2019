@@ -29,7 +29,7 @@ func main() {
 	// Get Data
 	_, file, _,  _ := runtime.Caller(0)
 
-	rawInput, _ := os.Open(path.Dir(file) + "/example")
+	rawInput, _ := os.Open(path.Dir(file) + "/input")
 
 	defer rawInput.Close()
 	scanner := bufio.NewScanner(rawInput)
@@ -91,8 +91,6 @@ func move(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors util.TileG
 			keysReachable[key] = stepsToKey
 		}
 	}
-
-	//fmt.Println(keysReachable)
 
 	shortestKey,_ := getShortest(maze, at, keys, doors, 0)
 	fmt.Println(shortestKey)
@@ -175,9 +173,9 @@ func getShortest(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors uti
 
 	max := len(ss)
 
-	// if max > 2 {
-	// 	max = 2
-	// }
+	if max > 3 {
+		max = 3
+	}
 
 	// For each rechable key clone stuff then use shortest value for return of moved
 	for _,kv := range ss[:max] {
@@ -198,6 +196,7 @@ func getShortest(maze util.TileGrid, at util.Tile, keys util.TileGrid, doors uti
 			valString := tile.Value.(string)
 			return (strings.ToLower(valString) == valString && valString != "#")
 		})
+		keySteps += 1
 
 		// Clear where current at and move to key location
 		tempMaze[tempAt.Coordinate.String()] = util.Tile{util.Coordinate{tempAt.Coordinate.X, tempAt.Coordinate.Y}, "."}
